@@ -382,13 +382,15 @@ class DegitalOcean {
 		$this->api_key = @getenv('OCEAN_API_KEY');
 		$this->client_id = @getenv('OCEAN_CLIENT_ID');
 
-		if ($this->api_key === '' || $this->client_id === '')
+		if ($this->api_key == '' || $this->client_id == '')
 		{
 			echo <<<EOL
-please edit .bash_profile
-export OCEAN_API_KEY=XXXXXXXX  <-- web api_key
-export OCEAN_CLIENT_ID=XXXXXXXX  <-- web client_id
+please edit .bash_profile or .bashrc
+export OCEAN_API_KEY=XXXXXXXX
+export OCEAN_CLIENT_ID=XXXXXXXX
+
 EOL;
+			die();
 		}
 
 		$this->load_cache();
