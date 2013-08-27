@@ -3,15 +3,21 @@ ocean
 
 DegitalOcean WebApi commandline wrapper
 
-##INSALL
+[DegitalOcean is Simple Cloud Hosting for Developpers]((https://www.digitalocean.com/?refcode=58b04120b7b2)
+
+
+
+##INSTALL
+
 ```
-wget xxxxxx
+wget https://raw.github.com/abe00makoto/ocean/master/ocean
 chmod +x ocean
 
 vim ~/.bash_profile
 
 export OCEAN_API_KEY=xxxxxxxx
 export OCEAN_CLIENT_ID=xxxxxxxx
+
 ```
 
 ##Run
@@ -19,6 +25,24 @@ export OCEAN_CLIENT_ID=xxxxxxxx
 ex) server restart
 ```
 ocean droplets server01 reboot
+```
+ex) server make
+
+```
+ocean droplets new droplet_name=abe05 size_id=512MB image_id='CentOS 6.4 x32' region_id='Amsterdam 1' ssh_key_id1=abe00makoto
+```
+ex) if miss typed.
+
+```
+ocean droplets new droplet_name=abe05 size_id=512MB image_id='CentOS 6.4 x32' region_id=??? ssh_key_id1=abe00makoto
+
+name resolution error:region_id:[???]
+please select from
+[Amsterdam 1] 
+[San Francisco 1] 
+[New York 2] 
+
+
 ```
 
 ```
