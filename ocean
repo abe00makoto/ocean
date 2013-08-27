@@ -1,0 +1,414 @@
+#!/usr/bin/php
+<?php
+
+class DegitalOcean {
+	private $base_url = 'https://api.digitalocean.com/';
+	private $api_list = array(
+		'droplets/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/new?client_id=[client_id]&api_key=[api_key]&name=[droplet_name]&size_id=[size_id]&image_id=[image_id]&region_id=[region_id]',
+		'droplets/new?client_id=[client_id]&api_key=[api_key]&name=[droplet_name]&size_id=[size_id]&image_id=[image_id]&region_id=[region_id]&ssh_key_ids=[ssh_key_id1]',
+		'droplets/new?client_id=[client_id]&api_key=[api_key]&name=[droplet_name]&size_id=[size_id]&image_id=[image_id]&region_id=[region_id]&ssh_key_ids=[ssh_key_id1],[ssh_key_id2]',
+		'droplets/[droplet_id]?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/reboot/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/power_cycle/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/shutdown/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/power_off/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/power_on/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/password_reset/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/resize/?size_id=[size_id]&client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/snapshot/?name=[snapshot_name]&client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/restore/?image_id=[image_id]&client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/rebuild/?image_id=[image_id]&client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/enable_backups/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/disable_backups/?client_id=[client_id]&api_key=[api_key]',
+		'droplets/[droplet_id]/rename/?client_id=[client_id]&api_key=[api_key]&name=[name]',
+		'droplets/[droplet_id]/destroy/?client_id=[client_id]&api_key=[api_key]',
+		'regions/?client_id=[client_id]&api_key=[api_key]',
+		'images/?client_id=[client_id]&api_key=[api_key]',
+		'images/[image_id]/?client_id=[client_id]&api_key=[api_key]',
+		'images/[image_id]/transfer/?client_id=[client_id]&api_key=[api_key]&region_id=[region_id]',
+		'ssh_keys/?client_id=[client_id]&api_key=[api_key]',
+		'ssh_keys/new/?name=[ssh_key_name]&ssh_pub_key=[ssh_public_key]client_id=[client_id]&api_key=[api_key]',
+		'ssh_keys/[ssh_key_id]/?client_id=[client_id]&api_key=[api_key]',
+		'ssh_keys/[ssh_key_id]/edit/?client_id=[client_id]&api_key=[api_key]',
+		'ssh_keys/[ssh_key_id]/destroy/?client_id=[client_id]&api_key=[api_key]',
+		'sizes/?client_id=[client_id]&api_key=[api_key]',
+		'domains?client_id=[client_id]&api_key=[api_key]',
+		'domains/new?client_id=[client_id]&api_key=[api_key]&name=[domain]&ip_address=[ip_address]',
+		'domains/[domain_id]?client_id=[client_id]&api_key=[api_key]',
+		'domains/[domain_id]/destroy?client_id=[client_id]&api_key=[api_key]',
+		'domains/[domain_id]/records?client_id=[client_id]&api_key=[api_key]',
+		'domains/[domain_id]/records/new?client_id=[client_id]&api_key=[api_key]&record_type=[record_type]&data=[data]',
+		'domains/[domain_id]/records/[record_id]?client_id=[client_id]&api_key=[api_key]',
+		'domains/[domain_id]/records/[record_id]/edit?client_id=[client_id]&api_key=[api_key]',
+		'domains/[domain_id]/records/[record_id]/destroy?client_id=[client_id]&api_key=[api_key]',
+	);
+
+	private $params = array();
+	private $api_params = array();
+	private $api_regxs = array();
+	private $args = '';
+	private $name_resolutions = array();
+	const QUERY_ID = 'query_id';
+	const PATH_ID = 'path_id';
+	const PATH_VALUE = 'path_value';
+
+	function url_slice($api)
+	{
+		preg_match('/^(.*)(\/\?|\?)/U', $api, $matches);
+		//print_r($matches[1]);
+		//echo "\n";
+		return explode('/', trim($matches[1]));
+	}
+
+	function url_query_slice($api)
+	{
+		preg_match('|\?(.*)$|U', $api, $matches);
+		$string = $matches[1];
+		preg_match_all('|\[(.*)\]|U', $string, $matches, PREG_PATTERN_ORDER);
+		return $matches[1];
+	}
+
+	function replacement_id($word)
+	{
+		preg_match('|\[(.*)\]|U', $word, $matches);
+		if (count($matches) > 0)
+		{
+			return $matches[1];
+		}
+		else
+		{
+			return NULL;
+		}
+	}
+
+	public function usage()
+	{
+		echo "usage:\n";
+		foreach ($this->api_list as $api)
+		{
+			echo "\t";
+			echo "ocean ";
+			$mae = $this->url_slice($api);
+			foreach ($mae as $word)
+			{
+				$parameter = $this->replacement_id($word);
+				if ($parameter)
+				{
+					echo "<$parameter> ";
+				}
+				else
+				{
+					echo "$word ";
+				}
+			}
+			$ushiro = $this->url_query_slice($api);
+			foreach ($ushiro as $parameter)
+			{
+				if ($parameter === "client_id" OR $parameter === "api_key")
+				{
+					continue;
+				}
+				echo "$parameter=<$parameter> ";
+			}
+			echo "\n";
+		}
+	}
+
+	public function make_api_regx()
+	{
+		foreach ($this->api_list as $api)
+		{
+			$api_regx = '/^';
+			$mae = $this->url_slice($api);
+			for ($i = 0; $i < count($mae); $i++)
+			{
+				if ($this->replacement_id($mae[$i]))
+				{
+					$api_regx .= '[^\s]+';
+				}
+				else
+				{
+					$api_regx .= $mae[$i];
+				}
+				if ($i == count($mae) - 1)
+				{
+					$api_regx .= '\s*';
+				}
+				else
+				{
+					$api_regx .= '\s+';
+				}
+			}
+			$ushiro = $this->url_query_slice($api);
+			unset($ushiro[array_search('client_id', $ushiro)]);
+			unset($ushiro[array_search('api_key', $ushiro)]);
+			if (count($ushiro) > 0)
+			{
+				$api_regx .= '([^=]+=[^=]+\s*){'.count($ushiro).'}$/';
+			}
+			else
+			{
+				$api_regx .= '$/';
+			}
+			$this->api_regxs[] = $api_regx;
+		}
+	}
+
+	public function make_params()
+	{
+		global $argv;
+		array_shift($argv);
+		$this->args='';
+		$this->params = array();
+		foreach ($argv as $arg)
+		{
+			$this->args.=$arg.' ';
+			if (preg_match('/^([^=]+)=(.+)/', $arg, $matches))
+			{
+				//print_r($matches);
+				$this->params[$matches[1]] = $matches[2];
+
+			}
+			else
+			{
+				$this->params[$arg] = TRUE;
+			}
+		}
+		$this->args=trim($this->args);
+
+		$this->params['api_key'] = $this->api_key;
+		$this->params['client_id'] = $this->client_id;
+
+	}
+
+	public function make_api_params()
+	{
+		$this->api_params = array();
+
+		foreach ($this->api_list as $api)
+		{
+			$this->api_params[$api] = array();
+
+			$urls = $this->url_slice($api);
+			foreach ($urls as $slice)
+			{
+				$parameter = $this->replacement_id($slice);
+				if ($parameter)
+				{
+					$slice = $parameter;
+					$this->api_params[$api][$slice] = DegitalOcean::PATH_VALUE;
+				}
+				else
+				{
+					$this->api_params[$api][$slice] = DegitalOcean::PATH_ID;
+				}
+			}
+			$ushiro = $this->url_query_slice($api);
+			foreach ($ushiro as $parameter)
+			{
+				$this->api_params[$api][$parameter] = DegitalOcean::QUERY_ID;
+			}
+
+		}
+		//print_r($this->api_params);
+	}
+
+	public function search_use_api()
+	{
+		$matches = array();
+		for ($i = 0; $i < count($this->api_regxs); $i++)
+		{
+			if (preg_match($this->api_regxs[$i], $this->args) > 0)
+			{
+				$matches[] = $i;
+			}
+		}
+		if (count($matches) == 0)
+		{
+			echo "no hit api\n";
+			$this->usage();
+			die();
+		}
+
+		foreach ($matches as $index)
+		{
+			$api = $this->api_list[$index];
+			foreach ($this->api_params[$api] as $id => $type)
+			{
+				if ($type == DegitalOcean::QUERY_ID)
+				{
+					if (!in_array($id, array_keys($this->params)))
+					{
+						$this->usage();
+						die();
+					}
+				}
+			}
+		}
+		return $api;
+
+	}
+
+	private function make_replace_params($api)
+	{
+		$replace_params = array();
+		foreach ($this->params as $id => $Value)
+		{
+			$api_params_keys = array_keys($this->api_params[$api]);
+			if (!in_array($id, $api_params_keys))
+			{
+				$key = array_search($id, array_keys($this->params));
+				$item = $api_params_keys[$key];
+				$replace_params[$item] = $id;
+			}
+			else if ($Value !== TRUE)
+			{
+				$replace_params[$id] = $Value;
+			}
+		}
+		return $replace_params;
+	}
+
+	private function name_resolution($params)
+	{
+		$ignore_list = array('client_id', 'api_key');
+		foreach ($params as $id => $value)
+		{
+			if (in_array($id, $ignore_list))
+			{
+				continue;
+			}
+
+			if (!is_numeric($value))
+			{
+				//echo "$id is not number: $value resolution!!\n";
+				if (preg_match('/^(.*)_id\d*$/', $id, $matches) > 0)
+				{
+					//echo "is target $id";
+					$resolution_id = $matches[1].'s';
+					$resolution_name = $value;
+
+					if (!isset($this->name_resolutions[$resolution_id][$resolution_name]))
+					{
+						//echo "no cache\n";
+						$api_params = array();
+						$api_params['clinet_id'] = $this->client_id;
+						$api_params['api_key'] = $this->api_key;
+						$api = $resolution_id.'/?client_id=[clinet_id]&api_key=[api_key]';
+						$json = $this->api_run($api, $api_params);
+						//print_r($this->name_resolutions[$resolution_id]);
+						unset($this->name_resolutions[$resolution_id]);
+						foreach ($json->$resolution_id as $object)
+						{
+							$this->name_resolutions[$resolution_id][$object->name] = $object->id;
+						}
+
+
+					}
+					if (isset($this->name_resolutions[$resolution_id][$resolution_name]))
+					{
+						$params[$id] = $this->name_resolutions[$resolution_id][$resolution_name];
+					}
+					else
+					{
+						echo "name resolution error:$id:[$value]\n";
+						echo "please select from\n";
+						foreach($this->name_resolutions[$resolution_id] as $id=>$value)
+						{
+							echo "[$id] \n";
+						}
+						die();
+					}
+
+				}
+
+			}
+		}
+		return $params;
+	}
+
+	private function api_run($api, $params)
+	{
+
+		$api_replace = $api;
+		foreach ($params as $key => $value)
+		{
+			$api_replace = preg_replace('/\['.$key.'\]/', $value, $api_replace);
+		}
+
+		if (!$json = json_decode(@file_get_contents($this->base_url.$api_replace)))
+		{
+			$this->usage();
+			die();
+		}
+
+		if ($json->status === 'OK')
+		{
+			unset($json->status);
+			return $json;
+		}
+		else
+		{
+			if(is_string($json->error_message))
+			{
+				echo $json->error_message.PHP_EOL;
+			}
+			else
+			{
+				print_r($json->error_message);
+			}
+			die();
+		}
+	}
+
+	private $cache_name = 'ocean_temps';
+
+	private function save_cache()
+	{
+		file_put_contents(sys_get_temp_dir().DIRECTORY_SEPARATOR.$this->cache_name, serialize($this->name_resolutions));
+	}
+
+	private function load_cache()
+	{
+		if (file_exists(sys_get_temp_dir().DIRECTORY_SEPARATOR.$this->cache_name))
+		{
+			$this->name_resolutions = unserialize(file_get_contents(sys_get_temp_dir().DIRECTORY_SEPARATOR.$this->cache_name));
+		}
+	}
+
+	public function __construct()
+	{
+		$this->api_key = @getenv('OCEAN_API_KEY');
+		$this->client_id = @getenv('OCEAN_CLIENT_ID');
+
+		if ($this->api_key === '' || $this->client_id === '')
+		{
+			echo <<<EOL
+please edit .bash_profile
+export OCEAN_API_KEY=XXXXXXXX  <-- web api_key
+export OCEAN_CLIENT_ID=XXXXXXXX  <-- web client_id
+EOL;
+		}
+
+		$this->load_cache();
+		$this->make_params();
+		$this->make_api_params();
+		$this->make_api_regx();
+
+		//print_r($this->params);
+
+		$api = $this->search_use_api();
+		$params = $this->make_replace_params($api);
+
+		//name_resolution
+		$params = $this->name_resolution($params);
+
+		$json = $this->api_run($api, $params);
+		print_r($json);
+		$this->save_cache();
+	}
+}
+
+
+$do = new DegitalOcean();
